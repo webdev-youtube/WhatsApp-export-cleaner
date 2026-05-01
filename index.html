@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>WA Chat Cleaner — NLP Dataset Tool</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Syne:wght@400;600;700;800&display=swap');
+
+  :root {
+    --bg:        #0a0c0f;
+    --surface:   #111417;
+    --panel:     #161a1f;
+    --border:    #1e2530;
+    --accent:    #00e5a0;
+    --accent2:   #00b07a;
+    --danger:    #ff4d6d;
+    --warn:      #ffd166;
+    --text:      #d4dde8;
+    --muted:     #5a6a7a;
+    --code-bg:   #0d1117;
+    --radius:    10px;
+    --font-mono: 'JetBrains Mono', monospace;
+    --font-ui:   'Syne', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px 60px;
+    background-image:
+      radial-gradient(ellipse 60% 40% at 10% 0%, rgba(0,229,160,.06) 0%, transparent 60%),
+      radial-gradient(ellipse 40% 30% at 90% 100%, rgba(0,176,122,.04) 0%, transparent 60%);
+  }
+
+  /* ── HEADER ─────────────────────────────────── */
+  header {
+    width: 100%;
+    max-width: 860px;
+    margin-bottom: 36px;
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+  }
+  .logo-badge {
+    background: var(--accent);
+    color: #000;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 10px;
+    letter-spacing: .12em;
+    padding: 4px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    flex-shrink: 0;
+    align-self: flex-start;
+    margin-top: 6px;
+  }
+  .header-text h1 {
+    font-size: clamp(22px, 4vw, 34px);
+    font-weight: 800;
+    letter-spacing: -.02em;
+    line-height: 1;
+    color: #fff;
+  }
+  .header-text p {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 6px;
+    letter-spacing: .04em;
+  }
+
+  /* ── MAIN LAYOUT ─────────────────────────────── */
+  .app {
+    width: 100%;
+    max-width: 860px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* ── CARDS ───────────────────────────────────── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+  }
+  .card-header .step {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #000;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 11px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+  }
+  .card-header h2 {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: #fff;
+  }
+  .card-body { padding: 20px; }
+
+  /* ── DROP ZONE ───────────────────────────────── */
+  #drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+    position: relative;
+    background: var(--code-bg);
+  }
+  #drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(0,229,160,.04);
+  }
+  #drop-zone input[type="file"] {
+    position: absolute; inset: 0;
+    opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+  .drop-icon {
+    font-size: 36px;
+    margin-bottom: 12px;
+    display: block;
+    filter: grayscale(1) brightness(.6);
+    transition: filter .2s;
+  }
+  #drop-zone:hover .drop-icon,
+  #drop-zone.drag-over .drop-icon { filter: none; }
+  .drop-label {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .drop-label span {
+    color: var(--accent);
+    font-weight: 600;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+  }
+  #file-info {
+    margin-top: 14px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+    padding: 8px 12px;
+    background: var(--panel);
+    border-radius: 6px;
+    display: none;
+    text-align: left;
+    border: 1px solid var(--border);
+  }
+  #file-info.visible { display: block; }
+  #file-info .fname { color: var(--accent); font-weight: 600; }
+  #file-info .fmeta { color: var(--muted); margin-top: 2px; }
+
+  /* ── OPTIONS GRID ────────────────────────────── */
+  .options-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 10px;
+  }
+  .opt-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+    user-select: none;
+  }
+  .opt-item:hover { border-color: var(--accent); background: rgba(0,229,160,.03); }
+  .opt-item input[type="checkbox"] { display: none; }
+  .opt-checkbox {
+    width: 16px; height: 16px;
+    border: 2px solid var(--muted);
+    border-radius: 4px;
+    flex-shrink: 0;
+    margin-top: 1px;
+    display: grid;
+    place-items: center;
+    transition: border-color .15s, background .15s;
+  }
+  .opt-checkbox::after {
+    content: '';
+    width: 8px; height: 8px;
+    background: #000;
+    border-radius: 2px;
+    opacity: 0;
+    transform: scale(.4);
+    transition: opacity .12s, transform .12s;
+  }
+  .opt-item input:checked ~ .opt-checkbox {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .opt-item input:checked ~ .opt-checkbox::after { opacity: 1; transform: scale(1); }
+  .opt-text { flex: 1; }
+  .opt-label {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    display: block;
+  }
+  .opt-desc {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+    line-height: 1.5;
+  }
+
+  /* ── MIN LENGTH FIELD ────────────────────────── */
+  .min-len-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    padding: 10px 14px;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .min-len-row label {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  #minLen {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    width: 70px;
+    outline: none;
+    transition: border-color .15s;
+  }
+  #minLen:focus { border-color: var(--accent); }
+
+  /* ── PROCESS BUTTON ──────────────────────────── */
+  #processBtn {
+    width: 100%;
+    padding: 15px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: var(--radius);
+    font-family: var(--font-ui);
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background .2s, transform .1s, box-shadow .2s;
+    box-shadow: 0 0 30px rgba(0,229,160,.15);
+  }
+  #processBtn:hover:not(:disabled) {
+    background: #00ffa8;
+    box-shadow: 0 0 40px rgba(0,229,160,.35);
+  }
+  #processBtn:active:not(:disabled) { transform: scale(.98); }
+  #processBtn:disabled {
+    background: var(--border);
+    color: var(--muted);
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
+  /* ── PROGRESS ────────────────────────────────── */
+  #progress-section { display: none; }
+  #progress-section.visible { display: block; }
+  .progress-bar-wrap {
+    height: 6px;
+    background: var(--border);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+  #progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent2), var(--accent));
+    border-radius: 999px;
+    transition: width .15s ease;
+    box-shadow: 0 0 8px rgba(0,229,160,.5);
+  }
+  .progress-meta {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+  #progress-label { color: var(--text); }
+
+  /* ── STATS ROW ───────────────────────────────── */
+  #stats-row {
+    display: none;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 10px;
+    margin-top: 4px;
+  }
+  #stats-row.visible { display: grid; }
+  .stat-box {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    text-align: center;
+  }
+  .stat-val {
+    font-family: var(--font-mono);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--accent);
+    display: block;
+    line-height: 1;
+  }
+  .stat-key {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 5px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+
+  /* ── PREVIEW ─────────────────────────────────── */
+  #preview-section { display: none; }
+  #preview-section.visible { display: block; }
+  #preview-box {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.8;
+    color: var(--text);
+    max-height: 260px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  #preview-box::-webkit-scrollbar { width: 6px; }
+  #preview-box::-webkit-scrollbar-track { background: transparent; }
+  #preview-box::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+
+  .preview-line { border-bottom: 1px solid rgba(255,255,255,.04); padding: 3px 0; }
+  .preview-line:last-child { border-bottom: none; }
+  .line-num {
+    color: var(--muted);
+    user-select: none;
+    margin-right: 12px;
+    display: inline-block;
+    width: 28px;
+    text-align: right;
+  }
+
+  /* ── DOWNLOAD ────────────────────────────────── */
+  #download-section { display: none; }
+  #download-section.visible { display: block; }
+  #downloadBtn {
+    width: 100%;
+    padding: 13px;
+    background: transparent;
+    color: var(--accent);
+    border: 2px solid var(--accent);
+    border-radius: var(--radius);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background .2s, color .2s;
+  }
+  #downloadBtn:hover {
+    background: var(--accent);
+    color: #000;
+  }
+
+  /* ── ERROR TOAST ─────────────────────────────── */
+  #error-box {
+    display: none;
+    background: rgba(255,77,109,.08);
+    border: 1px solid rgba(255,77,109,.3);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--danger);
+  }
+  #error-box.visible { display: block; }
+
+  /* ── FOOTER ──────────────────────────────────── */
+  footer {
+    margin-top: 48px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--muted);
+    text-align: center;
+    letter-spacing: .06em;
+  }
+
+  /* scrollbar global */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 999px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-badge">NLP</div>
+  <div class="header-text">
+    <h1>WA Chat Cleaner</h1>
+    <p>WhatsApp export → clean NLP dataset · pure browser · no backend</p>
+  </div>
+</header>
+
+<main class="app">
+
+  <!-- STEP 1: Upload -->
+  <div class="card">
+    <div class="card-header">
+      <div class="step">1</div>
+      <h2>Upload Chat Export</h2>
+    </div>
+    <div class="card-body">
+      <div id="drop-zone">
+        <input type="file" id="fileInput" accept=".txt" />
+        <span class="drop-icon">📄</span>
+        <div class="drop-label">
+          Drag &amp; drop your <span>_chat.txt</span> here<br/>
+          or <span>click to browse</span>
+        </div>
+      </div>
+      <div id="file-info">
+        <div class="fname" id="file-name"></div>
+        <div class="fmeta" id="file-meta"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2: Options -->
+  <div class="card">
+    <div class="card-header">
+      <div class="step">2</div>
+      <h2>Cleaning Options</h2>
+    </div>
+    <div class="card-body">
+      <div class="options-grid">
+
+        <label class="opt-item">
+          <input type="checkbox" id="opt-timestamps" checked />
+          <div class="opt-checkbox"></div>
+          <div class="opt-text">
+            <span class="opt-label">Remove Timestamps</span>
+            <span class="opt-desc">Strip date &amp; time prefix from each message</span>
+          </div>
+        </label>
+
+        <label class="opt-item">
+          <input type="checkbox" id="opt-senders" checked />
+          <div class="opt-checkbox"></div>
+          <div class="opt-text">
+            <span class="opt-label">Remove Sender Names</span>
+            <span class="opt-desc">Strip "Name:" attribution from messages</span>
+          </div>
+        </label>
+
+        <label class="opt-item">
+          <input type="checkbox" id="opt-links" checked />
+          <div class="opt-checkbox"></div>
+          <div class="opt-text">
+            <span class="opt-label">Remove Links</span>
+            <span class="opt-desc">Remove http/https URLs from text</span>
+          </div>
+        </label>
+
+        <label class="opt-item">
+          <input type="checkbox" id="opt-media" checked />
+          <div class="opt-checkbox"></div>
+          <div class="opt-text">
+            <span class="opt-label">Remove Media Notices</span>
+            <span class="opt-desc">Drop &lt;Media omitted&gt; placeholders</span>
+          </div>
+        </label>
+
+        <label class="opt-item">
+          <input type="checkbox" id="opt-emojis" />
+          <div class="opt-checkbox"></div>
+          <div class="opt-text">
+            <span class="opt-label">Remove Emojis</span>
+            <span class="opt-desc">Strip Unicode emoji characters</span>
+          </div>
+        </label>
+
+        <label class="opt-item">
+          <input type="checkbox" id="opt-short" checked />
+          <div class="opt-checkbox"></div>
+          <div class="opt-text">
+            <span class="opt-label">Remove Short Messages</span>
+            <span class="opt-desc">Drop messages below minimum length</span>
+          </div>
+        </label>
+
+        <label class="opt-item">
+          <input type="checkbox" id="opt-lowercase" />
+          <div class="opt-checkbox"></div>
+          <div class="opt-text">
+            <span class="opt-label">Normalize Casing</span>
+            <span class="opt-desc">Convert all text to lowercase</span>
+          </div>
+        </label>
+
+        <label class="opt-item">
+          <input type="checkbox" id="opt-system" checked />
+          <div class="opt-checkbox"></div>
+          <div class="opt-text">
+            <span class="opt-label">Remove System Msgs</span>
+            <span class="opt-desc">Drop group join/leave/changed notices</span>
+          </div>
+        </label>
+
+      </div>
+
+      <div class="min-len-row">
+        <label for="minLen">Min message length (chars):</label>
+        <input type="number" id="minLen" value="10" min="1" max="500" />
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3: Process -->
+  <div class="card">
+    <div class="card-header">
+      <div class="step">3</div>
+      <h2>Process</h2>
+    </div>
+    <div class="card-body" style="display:flex;flex-direction:column;gap:16px;">
+
+      <div id="error-box"></div>
+
+      <button id="processBtn" disabled>Process File</button>
+
+      <div id="progress-section">
+        <div class="progress-bar-wrap">
+          <div id="progress-bar"></div>
+        </div>
+        <div class="progress-meta">
+          <span id="progress-label">Parsing lines…</span>
+          <span id="progress-eta"></span>
+        </div>
+      </div>
+
+      <div id="stats-row">
+        <div class="stat-box">
+          <span class="stat-val" id="stat-raw">—</span>
+          <div class="stat-key">Raw Messages</div>
+        </div>
+        <div class="stat-box">
+          <span class="stat-val" id="stat-out">—</span>
+          <div class="stat-key">Cleaned Out</div>
+        </div>
+        <div class="stat-box">
+          <span class="stat-val" id="stat-dropped">—</span>
+          <div class="stat-key">Dropped</div>
+        </div>
+        <div class="stat-box">
+          <span class="stat-val" id="stat-chars">—</span>
+          <div class="stat-key">Output Chars</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- STEP 4: Preview -->
+  <div class="card" id="preview-section">
+    <div class="card-header">
+      <div class="step">4</div>
+      <h2>Preview (first 30 lines)</h2>
+    </div>
+    <div class="card-body">
+      <div id="preview-box"></div>
+    </div>
+  </div>
+
+  <!-- STEP 5: Download -->
+  <div class="card" id="download-section">
+    <div class="card-header">
+      <div class="step">5</div>
+      <h2>Download Dataset</h2>
+    </div>
+    <div class="card-body">
+      <button id="downloadBtn">⬇ Download cleaned_dataset.txt</button>
+    </div>
+  </div>
+
+</main>
+
+<footer>WA CHAT CLEANER · PURE BROWSER · NO DATA LEAVES YOUR DEVICE</footer>
+
+<script>
+'use strict';
+
+/*
+🔥 WhatsApp Cleaner — Optimized Engine
+- Streaming read (no full file split)
+- No messages[] array
+- No cleaned[] array
+- No .join()
+- O(1) memory growth (ish)
+- Smart yielding
+*/
+
+const $ = id => document.getElementById(id);
+
+// UI refs
+const processBtn  = $('processBtn');
+const progressBar = $('progress-bar');
+const progressLbl = $('progress-label');
+const progressEta = $('progress-eta');
+const progressSec = $('progress-section');
+const statsRow    = $('stats-row');
+const previewBox  = $('preview-box');
+const previewSec  = $('preview-section');
+const downloadSec = $('download-section');
+const errorBox    = $('error-box');
+
+let loadedFile = null;
+let outputBlob = null;
+
+// ─────────────────────────────────────────────
+// Regex (compiled ONCE)
+// ─────────────────────────────────────────────
+const MSG_PATTERN = /^(\d{1,2}[\/.]\d{1,2}[\/.]\d{2,4}),\s+(\d{1,2}:\d{2}(?:\s*[ap]m)?)\s[-–\u202F\s]+(.+?):\s([\s\S]*)$/i;
+const SYS_PATTERN = /^(\d{1,2}[\/.]\d{1,2}[\/.]\d{2,4}),\s+(\d{1,2}:\d{2}(?:\s*[ap]m)?)\s[-–\u202F\s]+(.+)$/i;
+
+const RE_LINKS  = /https?:\/\/[^\s]+/gi;
+const RE_EMOJI  = /[\u{1F600}-\u{1FAFF}\u{2600}-\u{27BF}]/gu;
+const RE_MULTI  = /\s{2,}/g;
+const RE_MEDIA  = /<[^>]*media\s*omitted[^>]*>/gi;
+const RE_SHORT  = /^(ok|okay|hmm|yes|no|k|lol)$/i;
+
+// ─────────────────────────────────────────────
+// File handler
+// ─────────────────────────────────────────────
+document.getElementById('fileInput').addEventListener('change', e => {
+  loadedFile = e.target.files[0];
+  processBtn.disabled = !loadedFile;
+});
+
+// ─────────────────────────────────────────────
+// MAIN
+// ─────────────────────────────────────────────
+processBtn.addEventListener('click', async () => {
+  if (!loadedFile) return;
+
+  try {
+    processBtn.disabled = true;
+    showProgress(0, 'Streaming file...', '');
+
+    const opts = getOptions();
+
+    const reader = loadedFile.stream().getReader();
+    const decoder = new TextDecoder('utf-8');
+
+    let buffer = '';
+    let currentParts = null;
+    let currentMeta = null;
+
+    const encoder = new TextEncoder();
+    let chunks = []; // Uint8 chunks (no giant string)
+
+    let totalMessages = 0;
+    let keptMessages = 0;
+    let preview = [];
+
+    const seen = new Set();
+
+    let lastYield = performance.now();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+
+      let lines = buffer.split('\n');
+      buffer = lines.pop(); // keep incomplete
+
+      for (let line of lines) {
+        const match = MSG_PATTERN.exec(line);
+
+        if (match) {
+          // flush previous
+          if (currentParts) {
+            const text = processMessage(currentParts.join(' '), currentMeta, opts, seen);
+            if (text) {
+              chunks.push(encoder.encode(text + '\n'));
+              keptMessages++;
+              if (preview.length < 30) preview.push(text);
+            }
+            totalMessages++;
+          }
+
+          currentMeta = {
+            date: match[1],
+            time: match[2],
+            sender: match[3],
+            isSystem: false
+          };
+
+          currentParts = [match[4]];
+
+        } else {
+          const sys = SYS_PATTERN.exec(line);
+
+          if (sys && !line.includes(':')) {
+            if (currentParts) {
+              const text = processMessage(currentParts.join(' '), currentMeta, opts, seen);
+              if (text) {
+                chunks.push(encoder.encode(text + '\n'));
+                keptMessages++;
+                if (preview.length < 30) preview.push(text);
+              }
+              totalMessages++;
+            }
+
+            currentMeta = { isSystem: true };
+            currentParts = [sys[3]];
+
+          } else {
+            if (currentParts) currentParts.push(line);
+          }
+        }
+
+        // smart yield
+        if (performance.now() - lastYield > 16) {
+          await new Promise(r => setTimeout(r, 0));
+          lastYield = performance.now();
+        }
+      }
+    }
+
+    // final flush
+    if (currentParts) {
+      const text = processMessage(currentParts.join(' '), currentMeta, opts, seen);
+      if (text) {
+        chunks.push(encoder.encode(text + '\n'));
+        keptMessages++;
+      }
+      totalMessages++;
+    }
+
+    outputBlob = new Blob(chunks, { type: 'text/plain' });
+
+    // stats
+    $('stat-raw').textContent = totalMessages;
+    $('stat-out').textContent = keptMessages;
+    $('stat-dropped').textContent = totalMessages - keptMessages;
+    $('stat-chars').textContent = chunks.reduce((a,c)=>a+c.length,0);
+
+    statsRow.classList.add('visible');
+
+    renderPreview(preview);
+    previewSec.classList.add('visible');
+    downloadSec.classList.add('visible');
+
+    showProgress(100, 'Done.', '');
+
+    processBtn.disabled = false;
+
+  } catch (e) {
+    showError(e.message);
+    processBtn.disabled = false;
+  }
+});
+
+// ─────────────────────────────────────────────
+// CLEANING PIPELINE
+// ─────────────────────────────────────────────
+function processMessage(text, meta, opts, seen) {
+
+  if (!text) return null;
+
+  if (opts.removeSystem && meta.isSystem) return null;
+
+  if (opts.removeMedia) text = text.replace(RE_MEDIA, '');
+  if (opts.removeLinks) text = text.replace(RE_LINKS, '');
+  if (opts.removeEmojis) text = text.replace(RE_EMOJI, '');
+
+  text = text.replace(RE_MULTI, ' ').trim();
+
+  if (!text) return null;
+  if (RE_SHORT.test(text)) return null;
+  if (!/[a-zA-Z]/.test(text)) return null;
+
+  if (opts.removeShort && text.length < opts.minLen) return null;
+
+  // dedupe
+  const norm = text.toLowerCase();
+  if (seen.has(norm)) return null;
+  seen.add(norm);
+
+  // casing
+  if (opts.lowercase) text = norm;
+  else text = text.charAt(0).toUpperCase() + text.slice(1);
+
+  if (!/[.!?]$/.test(text)) text += '.';
+
+  return text;
+}
+
+// ─────────────────────────────────────────────
+// OPTIONS
+// ─────────────────────────────────────────────
+function getOptions() {
+  return {
+    removeLinks: $('opt-links').checked,
+    removeMedia: $('opt-media').checked,
+    removeEmojis: $('opt-emojis').checked,
+    removeShort: $('opt-short').checked,
+    lowercase: $('opt-lowercase').checked,
+    removeSystem: $('opt-system').checked,
+    minLen: parseInt($('minLen').value, 10) || 10
+  };
+}
+
+// ─────────────────────────────────────────────
+// UI
+// ─────────────────────────────────────────────
+function showProgress(pct, label, eta) {
+  progressSec.classList.add('visible');
+  progressBar.style.width = pct + '%';
+  progressLbl.textContent = label;
+  progressEta.textContent = eta;
+}
+
+function renderPreview(lines) {
+  previewBox.innerHTML = lines.map((l,i)=>`<div>${i+1}. ${l}</div>`).join('');
+}
+
+function showError(msg) {
+  errorBox.textContent = msg;
+  errorBox.classList.add('visible');
+}
+
+// ─────────────────────────────────────────────
+// DOWNLOAD
+// ─────────────────────────────────────────────
+$('downloadBtn').addEventListener('click', () => {
+  if (!outputBlob) return;
+  const url = URL.createObjectURL(outputBlob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'cleaned_dataset.txt';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+</script>
+</body>
+</html>
